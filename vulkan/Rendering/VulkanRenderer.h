@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <vector>
 #include <set>
+#include <array>
 
 struct MainDevice
 {
@@ -36,6 +37,10 @@ private:
 	vk::Format swapchainImageFormat;
 	vk::Extent2D swapchainExtent;
 	std::vector<SwapchainImage> swapchainImages;
+
+	vk::PipelineLayout pipelineLayout;
+	vk::RenderPass renderPass;
+	vk::Pipeline graphicsPipeline;
 
 
 
@@ -67,6 +72,11 @@ private:
 	vk::PresentModeKHR chooseBestPresentationMode(const std::vector<vk::PresentModeKHR>& presentationModes);
 	vk::Extent2D chooseSwapExtent(const vk::SurfaceCapabilitiesKHR& surfaceCapabilities);
 	vk::ImageView createImageView(vk::Image image, vk::Format format, vk::ImageAspectFlagBits aspectFlags);
+
+	//  graphics pipeline
+	void createGraphicsPipeline();
+	VkShaderModule createShaderModule(const std::vector<char>& code);
+	void createRenderPass();
 
 
 
