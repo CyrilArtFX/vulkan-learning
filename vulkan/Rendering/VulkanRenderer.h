@@ -6,6 +6,7 @@
 
 #include <stdexcept>
 #include <vector>
+#include <set>
 
 struct MainDevice
 {
@@ -29,27 +30,44 @@ private:
 	vk::Queue graphicsQueue;
 	VkDebugUtilsMessengerEXT debugMessenger;
 
+	vk::SurfaceKHR surface;
+	vk::SwapchainKHR swapchain;
+	vk::Queue presentationQueue;
+	vk::Format swapchainImageFormat;
+	vk::Extent2D swapchainExtent;
+	std::vector<SwapchainImage> swapchainImages;
+
+
+
+	//  instance
 	void createInstance(); 
 	bool checkInstanceExtensionSupport(const std::vector<const char*>& checkExtensions);
+	bool checkValidationLayerSupport();
 	std::vector<const char*> getRequiredExtensions();
 
+	//  devices
 	void getPhysicalDevice();
 	bool checkDeviceSuitable(vk::PhysicalDevice device);
 	QueueFamilyIndices getQueueFamilies(vk::PhysicalDevice device);
-
 	void createLogicalDevice(); 
 
-	bool checkValidationLayerSupport();
+	//  debug
 	void setupDebugMessenger();
 	void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
+	VkResult createDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger);
+	void destroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
 
-	VkResult createDebugUtilsMessengerEXT(VkInstance instance,
-		const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
-		const VkAllocationCallbacks* pAllocator,
-		VkDebugUtilsMessengerEXT* pDebugMessenger);
-	void destroyDebugUtilsMessengerEXT(VkInstance instance,
-		VkDebugUtilsMessengerEXT debugMessenger,
-		const VkAllocationCallbacks* pAllocator);
+	//  surface and swapchain
+	vk::SurfaceKHR createSurface();
+	void createSwapchain();
+	SwapchainDetails getSwapchainDetails(vk::PhysicalDevice device);
+	bool checkDeviceExtensionSupport(vk::PhysicalDevice device);
+
+	vk::SurfaceFormatKHR chooseBestSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& formats);
+	vk::PresentModeKHR chooseBestPresentationMode(const std::vector<vk::PresentModeKHR>& presentationModes);
+	vk::Extent2D chooseSwapExtent(const vk::SurfaceCapabilitiesKHR& surfaceCapabilities);
+	vk::ImageView createImageView(vk::Image image, vk::Format format, vk::ImageAspectFlagBits aspectFlags);
+
 
 
 public:
