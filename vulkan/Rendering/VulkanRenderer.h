@@ -40,7 +40,11 @@ private:
 
 	vk::PipelineLayout pipelineLayout;
 	vk::RenderPass renderPass;
-	vk::Pipeline graphicsPipeline;
+	vk::Pipeline graphicsPipeline; 
+
+	std::vector<vk::Framebuffer> swapchainFramebuffers;
+	vk::CommandPool graphicsCommandPool;
+	std::vector<vk::CommandBuffer> commandBuffers;
 
 
 
@@ -77,6 +81,12 @@ private:
 	void createGraphicsPipeline();
 	VkShaderModule createShaderModule(const std::vector<char>& code);
 	void createRenderPass();
+
+	//  buffers
+	void createFramebuffers();
+	void createGraphicsCommandPool();
+	void createGraphicsCommandBuffers();
+	void recordCommands();
 
 
 
