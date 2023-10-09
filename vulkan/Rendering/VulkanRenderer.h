@@ -22,6 +22,7 @@ public:
 	~VulkanRenderer();
 
 	int init(GLFWwindow* windowP);
+	void draw();
 	void clean();
 
 private:
@@ -45,6 +46,12 @@ private:
 	std::vector<vk::Framebuffer> swapchainFramebuffers;
 	vk::CommandPool graphicsCommandPool;
 	std::vector<vk::CommandBuffer> commandBuffers;
+
+	std::vector<vk::Semaphore> imageAvailable;
+	std::vector<vk::Semaphore> renderFinished;
+	const int MAX_FRAME_DRAWS = 2;			// Should be less than the number of swapchain images, here 3 (could cause bugs)
+	int currentFrame = 0;
+	std::vector<vk::Fence> drawFences;
 
 
 
@@ -87,6 +94,9 @@ private:
 	void createGraphicsCommandPool();
 	void createGraphicsCommandBuffers();
 	void recordCommands();
+
+	//  draw
+	void createSynchronisation();
 
 
 
