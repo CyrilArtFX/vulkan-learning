@@ -6,6 +6,8 @@ VulkanMesh::VulkanMesh(vk::PhysicalDevice physicalDeviceP, vk::Device deviceP, v
 {
 	createVertexBuffer(transferQueue, transferCommandPool, vertices);
 	createIndexBuffer(transferQueue, transferCommandPool, indices);
+	
+	model.model = glm::mat4(1.0f);
 }
 
 void VulkanMesh::destroyBuffers()
@@ -15,6 +17,13 @@ void VulkanMesh::destroyBuffers()
 	device.destroyBuffer(indexBuffer, nullptr);
 	device.freeMemory(indexBufferMemory, nullptr);
 }
+
+
+void VulkanMesh::setModel(const glm::mat4& modelP)
+{
+	model.model = modelP;
+}
+
 
 
 void VulkanMesh::createVertexBuffer(vk::Queue transferQueue, vk::CommandPool transferCommandPool, std::vector<Vertex>* vertices)

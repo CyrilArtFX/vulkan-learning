@@ -19,11 +19,10 @@ struct MainDevice
 	vk::Device logicalDevice;
 };
 
-struct MVP 
+struct ViewProjection 
 {
 	glm::mat4 projection;
 	glm::mat4 view;
-	glm::mat4 model;
 };
 
 class VulkanRenderer
@@ -36,7 +35,7 @@ public:
 	void draw();
 	void clean();
 
-	void updateModel(glm::mat4 modelP);
+	void updateModel(int modelId, glm::mat4 modelP);
 
 
 
@@ -69,14 +68,22 @@ private:
 	std::vector<vk::Fence> drawFences;
 
 	vk::DescriptorSetLayout descriptorSetLayout;
-	std::vector<vk::Buffer> uniformBuffer;
-	std::vector<vk::DeviceMemory> uniformBufferMemory;
 	vk::DescriptorPool descriptorPool;
 	std::vector<vk::DescriptorSet> descriptorSets;
 
+	std::vector<vk::Buffer> vpUniformBuffer;
+	std::vector<vk::DeviceMemory> vpUniformBufferMemory;
+	std::vector<vk::Buffer> modelUniformBufferDynamic;
+	std::vector<vk::DeviceMemory> modelUniformBufferMemoryDynamic;
+
 
 	std::vector<VulkanMesh> meshes;
-	MVP mvp;
+	ViewProjection viewProj;
+
+	const int MAX_OBJECTS = 2;
+	VkDeviceSize minUniformBufferOffet;
+	size_t modelUniformAlignement;
+	Model* modelTransferSpace;
 
 
 
@@ -128,7 +135,8 @@ private:
 	void createUniformBuffers();
 	void createDescriptorPool();
 	void createDescriptorSets();
-	void updateUniformBuffer(uint32_t imageIndex);
+	void updateUniformBuffers(uint32_t imageIndex);
+	void allocateDynamicBufferTransferSpace();
 
 
 public:

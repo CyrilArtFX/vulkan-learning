@@ -7,6 +7,11 @@
 
 #include <Utils/VulkanUtilities.h>
 
+struct Model 
+{
+	glm::mat4 model;
+};
+
 class VulkanMesh
 {
 public:
@@ -19,6 +24,8 @@ public:
 	size_t getIndexCount() { return indexCount; }
 	vk::Buffer getVertexBuffer() { return vertexBuffer; }
 	vk::Buffer getIndexBuffer() { return indexBuffer; }
+	Model getModel() const { return model; }
+	void setModel(const glm::mat4& modelP);
 
 	void destroyBuffers();
 
@@ -32,6 +39,8 @@ private:
 
 	vk::PhysicalDevice physicalDevice;
 	vk::Device device;
+
+	Model model;
 
 	void createVertexBuffer(vk::Queue transferQueue, vk::CommandPool transferCommandPool, std::vector<Vertex>* vertices);
 	void createIndexBuffer(vk::Queue transferQueue, vk::CommandPool transferCommandPool, std::vector<uint32_t>* indices);
