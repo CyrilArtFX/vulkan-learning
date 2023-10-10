@@ -1,6 +1,9 @@
 #pragma once
+
 #include <vulkan/vulkan.hpp>
 #include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 #include <Utils/VulkanUtilities.h>
 #include "VulkanMesh.h"
@@ -16,6 +19,13 @@ struct MainDevice
 	vk::Device logicalDevice;
 };
 
+struct MVP 
+{
+	glm::mat4 projection;
+	glm::mat4 view;
+	glm::mat4 model;
+};
+
 class VulkanRenderer
 {
 public:
@@ -25,6 +35,10 @@ public:
 	int init(GLFWwindow* windowP);
 	void draw();
 	void clean();
+
+	void updateModel(glm::mat4 modelP);
+
+
 
 private:
 	GLFWwindow* window;
@@ -54,8 +68,15 @@ private:
 	int currentFrame = 0;
 	std::vector<vk::Fence> drawFences;
 
+	vk::DescriptorSetLayout descriptorSetLayout;
+	std::vector<vk::Buffer> uniformBuffer;
+	std::vector<vk::DeviceMemory> uniformBufferMemory;
+	vk::DescriptorPool descriptorPool;
+	std::vector<vk::DescriptorSet> descriptorSets;
+
 
 	std::vector<VulkanMesh> meshes;
+	MVP mvp;
 
 
 
@@ -102,6 +123,12 @@ private:
 	//  draw
 	void createSynchronisation();
 
+
+	void createDescriptorSetLayout();
+	void createUniformBuffers();
+	void createDescriptorPool();
+	void createDescriptorSets();
+	void updateUniformBuffer(uint32_t imageIndex);
 
 
 public:
