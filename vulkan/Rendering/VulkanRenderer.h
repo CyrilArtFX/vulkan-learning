@@ -3,6 +3,7 @@
 #include <GLFW/glfw3.h>
 
 #include <Utils/VulkanUtilities.h>
+#include "VulkanMesh.h"
 
 #include <stdexcept>
 #include <vector>
@@ -52,6 +53,9 @@ private:
 	const int MAX_FRAME_DRAWS = 2;			// Should be less than the number of swapchain images, here 3 (could cause bugs)
 	int currentFrame = 0;
 	std::vector<vk::Fence> drawFences;
+
+
+	VulkanMesh firstMesh;
 
 
 

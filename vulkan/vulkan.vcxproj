@@ -139,9 +139,11 @@ call compileShaders.bat</Command>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Rendering\VulkanMesh.cpp" />
     <ClCompile Include="Rendering\VulkanRenderer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Rendering\VulkanMesh.h" />
     <ClInclude Include="Rendering\VulkanRenderer.h" />
     <ClInclude Include="Utils\VulkanUtilities.h" />
   </ItemGroup>

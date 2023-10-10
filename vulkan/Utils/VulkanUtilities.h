@@ -1,7 +1,10 @@
 #pragma once
+
 #include <iostream>
 #include <fstream>
+
 #include <vulkan/vulkan.hpp>
+#include <glm/glm.hpp>
 
 #include <vector>
 #include <string>
@@ -76,3 +79,10 @@ static std::vector<char> readShaderFile(const std::string& filename)
 	file.close();
 	return fileBuffer;
 }
+
+
+struct Vertex
+{
+	glm::vec3 pos;
+	glm::vec3 color;
+};
