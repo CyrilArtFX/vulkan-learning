@@ -55,7 +55,7 @@ private:
 	std::vector<vk::Fence> drawFences;
 
 
-	VulkanMesh firstMesh;
+	std::vector<VulkanMesh> meshes;
 
 
 
