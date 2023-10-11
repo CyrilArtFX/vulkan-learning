@@ -10,16 +10,16 @@ layout(binding = 0) uniform ViewProjection {
     mat4 view;
 } viewProjection;
 
-// Dynamic uniform buffer
-layout(binding = 1) uniform Model {
+// Push constant
+layout(push_constant) uniform PushModel {
     mat4 model;
-} model;
+} pushModel;
 
 // To fragment shader
 layout(location = 0) out vec3 fragColor;
 
 void main() {
     gl_Position = viewProjection.projection * viewProjection.view *
-		model.model * vec4(pos, 1.0);
+		pushModel.model * vec4(pos, 1.0);
     fragColor = col;
 }

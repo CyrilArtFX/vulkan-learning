@@ -85,6 +85,9 @@ private:
 	size_t modelUniformAlignement;
 	Model* modelTransferSpace;
 
+	vk::PushConstantRange pushConstantRange;
+
+
 
 
 	//  instance
@@ -125,7 +128,7 @@ private:
 	void createFramebuffers();
 	void createGraphicsCommandPool();
 	void createGraphicsCommandBuffers();
-	void recordCommands();
+	void recordCommands(uint32_t currentImage);
 
 	//  draw
 	void createSynchronisation();
@@ -137,6 +140,7 @@ private:
 	void createDescriptorSets();
 	void updateUniformBuffers(uint32_t imageIndex);
 	void allocateDynamicBufferTransferSpace();
+	void createPushConstantRange();
 
 
 public:
