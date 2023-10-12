@@ -5,9 +5,13 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <stb_image.h>
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
 
 #include <Utils/VulkanUtilities.h>
 #include "VulkanMesh.h"
+#include "VulkanMeshModel.h"
 
 #include <stdexcept>
 #include <vector>
@@ -38,6 +42,10 @@ public:
 
 	void updateModel(int modelId, glm::mat4 modelP);
 
+
+
+	//  models
+	int createMeshModel(const std::string& filename);
 
 
 private:
@@ -81,7 +89,7 @@ private:
 	std::vector<VulkanMesh> meshes;
 	ViewProjection viewProj;
 
-	const int MAX_OBJECTS = 2;
+	const int MAX_OBJECTS = 20;
 	VkDeviceSize minUniformBufferOffet;
 	size_t modelUniformAlignement;
 	Model* modelTransferSpace;
@@ -101,6 +109,9 @@ private:
 	vk::DescriptorPool samplerDescriptorPool;
 	vk::DescriptorSetLayout samplerDescriptorSetLayout;
 	std::vector<vk::DescriptorSet> samplerDescriptorSets;
+
+	//  models
+	vector<VulkanMeshModel> meshModels;
 
 
 
@@ -172,6 +183,8 @@ private:
 	int createTexture(const std::string & filename);
 	void createTextureSampler();
 	int createTextureDescriptor(vk::ImageView textureImageView);
+
+
 
 
 public:
