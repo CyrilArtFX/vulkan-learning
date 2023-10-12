@@ -556,7 +556,7 @@ void VulkanRenderer::createSwapchain()
 		swapchainImage.image = image;
 
 		// Create image view
-		swapchainImage.imageView = createImageView(image, swapchainImageFormat, vk::ImageAspectFlagBits::eColor);
+		swapchainImage.imageView = createImageView(image, swapchainImageFormat, vk::ImageAspectFlagBits::eColor, 1);
 
 		swapchainImages.push_back(swapchainImage);
 	}
@@ -639,7 +639,7 @@ vk::Extent2D VulkanRenderer::chooseSwapExtent(const vk::SurfaceCapabilitiesKHR& 
 	}
 }
 
-vk::ImageView VulkanRenderer::createImageView(vk::Image image, vk::Format format, vk::ImageAspectFlagBits aspectFlags)
+vk::ImageView VulkanRenderer::createImageView(vk::Image image, vk::Format format, vk::ImageAspectFlagBits aspectFlags, uint32_t mipLevels)
 {
 	vk::ImageViewCreateInfo viewCreateInfo{};
 	viewCreateInfo.image = image;
@@ -662,7 +662,7 @@ vk::ImageView VulkanRenderer::createImageView(vk::Image image, vk::Format format
 	// Start mipmap level to view from
 	viewCreateInfo.subresourceRange.baseMipLevel = 0;
 	// Number of mipmap level to view
-	viewCreateInfo.subresourceRange.levelCount = 1;
+	viewCreateInfo.subresourceRange.levelCount = mipLevels;
 	// Start array level to view from
 	viewCreateInfo.subresourceRange.baseArrayLayer = 0;
 	// Number of array levels to view
@@ -1499,14 +1499,14 @@ void VulkanRenderer::createDepthBufferImage()
 
 	// Create image and image view
 	depthBufferImage = createImage(swapchainExtent.width,
-		swapchainExtent.height, depthFormat, vk::ImageTiling::eOptimal,
+		swapchainExtent.height, 1, depthFormat, vk::ImageTiling::eOptimal,
 		vk::ImageUsageFlagBits::eDepthStencilAttachment,
 		vk::MemoryPropertyFlagBits::eDeviceLocal, &depthBufferImageMemory);
 
-	depthBufferImageView = createImageView(depthBufferImage, depthFormat, vk::ImageAspectFlagBits::eDepth);
+	depthBufferImageView = createImageView(depthBufferImage, depthFormat, vk::ImageAspectFlagBits::eDepth, 1);
 }
 
-VkImage VulkanRenderer::createImage(uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling,
+VkImage VulkanRenderer::createImage(uint32_t width, uint32_t height, uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling,
 	vk::ImageUsageFlags useFlags, vk::MemoryPropertyFlags propFlags, vk::DeviceMemory* imageMemory)
 {
 	vk::ImageCreateInfo imageCreateInfo{};
@@ -1515,7 +1515,7 @@ VkImage VulkanRenderer::createImage(uint32_t width, uint32_t height, vk::Format 
 	imageCreateInfo.extent.height = height;
 	// Depth is 1, no 3D aspect
 	imageCreateInfo.extent.depth = 1;
-	imageCreateInfo.mipLevels = 1;
+	imageCreateInfo.mipLevels = mipLevels;
 	// Number of levels in image array
 	imageCreateInfo.arrayLayers = 1;
 	imageCreateInfo.format = format;
@@ -1598,12 +1598,13 @@ stbi_uc* VulkanRenderer::loadTextureFile(const std::string& filename, int* width
 	return image;
 }
 
-int VulkanRenderer::createTextureImage(const std::string& filename)
+int VulkanRenderer::createTextureImage(const std::string& filename, uint32_t& mipLevels)
 {
 	// Load image file
 	int width, height;
 	vk::DeviceSize imageSize;
 	stbi_uc* imageData = loadTextureFile(filename, &width, &height, &imageSize);
+	mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(width, height)))) + 1;
 
 	// Create staging buffer to hold loaded data, ready to copy to device
 	vk::Buffer imageStagingBuffer;
@@ -1626,23 +1627,31 @@ int VulkanRenderer::createTextureImage(const std::string& filename)
 	// Create image to hold final texture
 	vk::Image texImage;
 	vk::DeviceMemory texImageMemory;
-	texImage = createImage(width, height,
-		vk::Format::eR8G8B8A8Unorm, vk::ImageTiling::eOptimal,
-		vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
+	texImage = createImage(width, height, mipLevels, vk::Format::eR8G8B8A8Unorm,
+		vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eTransferDst |
+		vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferSrc,
 		vk::MemoryPropertyFlagBits::eDeviceLocal, &texImageMemory);
 
 	// -- COPY DATA TO IMAGE --
 	// Transition image to be DST for copy operations
 	transitionImageLayout(mainDevice.logicalDevice, graphicsQueue, graphicsCommandPool,
-		texImage, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
+		texImage, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal,
+		mipLevels);
 
 	// Copy image data
 	copyImageBuffer(mainDevice.logicalDevice, graphicsQueue,
 		graphicsCommandPool, imageStagingBuffer, texImage, width, height);
 
 	// -- READY FOR SHADER USE --
-	transitionImageLayout(mainDevice.logicalDevice, graphicsQueue, graphicsCommandPool, texImage,
-		vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal);
+	/*
+	transitionImageLayout(mainDevice.logicalDevice, graphicsQueue, graphicsCommandPool,
+		texImage, vk::ImageLayout::eTransferDstOptimal,
+		vk::ImageLayout::eShaderReadOnlyOptimal, mipLevels);
+	*/
+
+	// -- GENERATE MIPMAPS AND READY FOR SHADER USE --
+	generateMipmaps(mainDevice.logicalDevice, mainDevice.physicalDevice, graphicsQueue,
+		graphicsCommandPool, texImage, vk::Format::eR8G8B8A8Srgb, width, height, mipLevels);
 
 	// Add texture data to vector for reference
 	textureImages.push_back(texImage);
@@ -1658,10 +1667,11 @@ int VulkanRenderer::createTextureImage(const std::string& filename)
 
 int VulkanRenderer::createTexture(const std::string& filename)
 {
-	int textureImageLocation = createTextureImage(filename);
+	uint32_t mipLevels{ 0 };
+	int textureImageLocation = createTextureImage(filename, mipLevels);
 
 	vk::ImageView imageView = createImageView(textureImages[textureImageLocation],
-		vk::Format::eR8G8B8A8Unorm, vk::ImageAspectFlagBits::eColor);
+		vk::Format::eR8G8B8A8Unorm, vk::ImageAspectFlagBits::eColor, mipLevels);
 	textureImageViews.push_back(imageView);
 
 	int descriptorLoc = createTextureDescriptor(imageView);
@@ -1692,7 +1702,7 @@ void VulkanRenderer::createTextureSampler()
 	// Add a bias to the mimmap level
 	samplerCreateInfo.mipLodBias = 0.0f;
 	samplerCreateInfo.minLod = 0.0f;
-	samplerCreateInfo.maxLod = 0.0f;
+	samplerCreateInfo.maxLod = 10.0f;
 	// Overcome blur when a texture is stretched because of perspective with angle
 	samplerCreateInfo.anisotropyEnable = true;
 	// Anisotropy number of samples

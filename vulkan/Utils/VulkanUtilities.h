@@ -242,7 +242,7 @@ static void copyImageBuffer(vk::Device device, vk::Queue transferQueue, vk::Comm
 }
 
 static void transitionImageLayout(vk::Device device, vk::Queue queue, vk::CommandPool commandPool,
-	vk::Image image, vk::ImageLayout oldLayout, vk::ImageLayout newLayout)
+	vk::Image image, vk::ImageLayout oldLayout, vk::ImageLayout newLayout, uint32_t mipLevels)
 {
 	vk::CommandBuffer commandBuffer = beginCommandBuffer(device, commandPool);
 
@@ -259,7 +259,7 @@ static void transitionImageLayout(vk::Device device, vk::Queue queue, vk::Comman
 	// First mip level to start alterations on
 	imageMemoryBarrier.subresourceRange.baseMipLevel = 0;
 	// Number of mip levels to alter starting from baseMipLevel
-	imageMemoryBarrier.subresourceRange.levelCount = 1;
+	imageMemoryBarrier.subresourceRange.levelCount = mipLevels;
 	// First layer to starts alterations on
 	imageMemoryBarrier.subresourceRange.baseArrayLayer = 0;
 	// Number of layers to alter starting from baseArrayLayer
@@ -304,50 +304,138 @@ static void transitionImageLayout(vk::Device device, vk::Queue queue, vk::Comman
 	endAndSubmitCommandBuffer(device, commandPool, queue, commandBuffer);
 }
 
-/*
-static void copyBuffer(vk::Device device, vk::Queue transferQueue, vk::CommandPool transferCommandPool, vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::DeviceSize bufferSize)
+static void generateMipmaps(vk::Device device, vk::PhysicalDevice physicalDevice,
+	vk::Queue queue, vk::CommandPool commandPool, vk::Image image, vk::Format imageFormat,
+	int32_t texWidth, int32_t texHeight, uint32_t mipLevels)
 {
-	// Command buffer to hold transfer commands
-	vk::CommandBuffer transferCommandBuffer;
+	// Check if image format supports linear blitting. We create a texture image with
+	// the optimal tiling format, so we need to check optimalTilingFeatures.
+	vk::FormatProperties formatProperties = physicalDevice.getFormatProperties(imageFormat);
+	if (!(formatProperties.optimalTilingFeatures
+		& vk::FormatFeatureFlagBits::eSampledImageFilterLinear))
+	{
+		throw std::runtime_error(
+			"texture image format does not support linear blitting!"
+		);
+	}
 
-	// Command buffer details
-	vk::CommandBufferAllocateInfo allocInfo{};
-	allocInfo.level = vk::CommandBufferLevel::ePrimary;
-	allocInfo.commandPool = transferCommandPool;
-	allocInfo.commandBufferCount = 1;
+	vk::CommandBuffer commandBuffer = beginCommandBuffer(device, commandPool);
 
-	// Allocate command buffer from pool
-	transferCommandBuffer = device.allocateCommandBuffers(allocInfo).front();
+	// The fields set below will remain the same for all barriers.
+	// On the contrary, subresourceRange.miplevel, oldLayout, newLayout, srcAccessMask,
+	// and dstAccessMask will be changed for each transition.
+	vk::ImageMemoryBarrier barrier{};
+	barrier.image = image;
+	barrier.srcQueueFamilyIndex = vk::QueueFamilyIgnored;
+	barrier.dstQueueFamilyIndex = vk::QueueFamilyIgnored;
+	barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+	barrier.subresourceRange.baseArrayLayer = 0;
+	barrier.subresourceRange.layerCount = 1;
+	barrier.subresourceRange.levelCount = 1;
 
-	// Information to begin command buffer record
-	vk::CommandBufferBeginInfo beginInfo{};
-	// Only using command buffer once, then become unvalid
-	beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
+	int32_t mipWidth = texWidth;
+	int32_t mipHeight = texHeight;
 
-	// Begin records transfer commands
-	transferCommandBuffer.begin(beginInfo);
+	// This loop will record each of the blitImage commands.
+	// Note that the loop variable starts at 1, not 0.
+	for (uint32_t i = 1; i < mipLevels; i++)
+	{
+		// First, we transition level i - 1 to vk::ImageLayout::eTransferSrcOptimal.
+		// This transition will wait for level i - 1 to be filled, either from the
+		//  previous blit command, or from vk::CommandBuffer::copyBufferToImage.
+		barrier.subresourceRange.baseMipLevel = i - 1;
+		barrier.oldLayout = vk::ImageLayout::eTransferDstOptimal;
+		barrier.newLayout = vk::ImageLayout::eTransferSrcOptimal;
+		barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+		barrier.dstAccessMask = vk::AccessFlagBits::eTransferRead;
 
-	// Region of data to copy from and to
-	vk::BufferCopy bufferCopyRegion{};
-	bufferCopyRegion.srcOffset = 0;		// From the start of first buffer...
-	bufferCopyRegion.dstOffset = 0;		// ...copy to the start of second buffer
-	bufferCopyRegion.size = bufferSize;
+		// The current blit command will wait on this transition.
+		commandBuffer.pipelineBarrier(
+			vk::PipelineStageFlagBits::eTransfer,
+			vk::PipelineStageFlagBits::eTransfer, {},
+			0, nullptr, 0, nullptr, 1, &barrier);
 
-	// Copy src buffer to dst buffer
-	transferCommandBuffer.copyBuffer(srcBuffer, dstBuffer, bufferCopyRegion);
+		// Next, we specify the regions that will be used in the blit operation.
+		// The source mip level is i - 1 and the destination mip level is i.
+		// The two elements of the srcOffsets array determine the 3D region
+		// that data will be blitted from. dstOffsets determines the region
+		// that data will be blitted to.
+		vk::ImageBlit blit{};
+		blit.srcOffsets[0] = vk::Offset3D{ 0, 0, 0 };
+		blit.srcOffsets[1] = vk::Offset3D{ mipWidth, mipHeight, 1 };
+		blit.srcSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+		blit.srcSubresource.mipLevel = i - 1;
+		blit.srcSubresource.baseArrayLayer = 0;
+		blit.srcSubresource.layerCount = 1;
+		// The X and Y dimensions of the dstOffsets[1] are divided by two since each mip
+		// level is half the size of the previous level.The Z dimension of
+		// srcOffsets[1] and dstOffsets[1] must be 1, since a 2D image has
+		// a depth of 1.
+		blit.dstOffsets[0] = vk::Offset3D{ 0, 0, 0 };
+		blit.dstOffsets[1] = vk::Offset3D{ mipWidth > 1 ? mipWidth / 2 : 1,
+			mipHeight > 1 ? mipHeight / 2 : 1, 1 };
+		blit.dstSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+		blit.dstSubresource.mipLevel = i;
+		blit.dstSubresource.baseArrayLayer = 0;
+		blit.dstSubresource.layerCount = 1;
 
-	// End record commands
-	transferCommandBuffer.end();
 
-	// Queue submission info
-	vk::SubmitInfo submitInfo{};
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &transferCommandBuffer;
+		// Now, we record the blit command. Note that textureImage is used for both
+		// the srcImage and dstImage parameter. This is because we're blitting between
+		// different levels of the same image. The source mip level was just transitioned
+		// to vk::ImageLayout::eTransferSrcOptimal and the destination level
+		// is still in vk::ImageLayout::eTransferDstOptimal from createTextureImage.
+		// The last parameter is the same filtering options here that we had when making
+		// the vk::Sampler. We use the vk::Filter::eLinear to enable interpolation.
+		commandBuffer.blitImage(
+			image, vk::ImageLayout::eTransferSrcOptimal,
+			image, vk::ImageLayout::eTransferDstOptimal,
+			1, &blit,
+			vk::Filter::eLinear);
 
-	// Submit transfer commands to transfer queue and wait until it finishes
-	transferQueue.submit(submitInfo);
-	transferQueue.waitIdle();
+		// This barrier transitions mip level i - 1 to
+		// vk::ImageLayout::eShaderReadOnlyOptimal. This transition waits on the
+		// current blit command to finish. All sampling operations will wait
+		// on this transition to finish.
+		barrier.oldLayout = vk::ImageLayout::eTransferSrcOptimal;
+		barrier.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+		barrier.srcAccessMask = vk::AccessFlagBits::eTransferRead;
+		barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
 
-	// Free temporary command buffer
-	device.freeCommandBuffers(transferCommandPool, transferCommandBuffer);
-}*/
+		commandBuffer.pipelineBarrier(
+			vk::PipelineStageFlagBits::eTransfer,
+			vk::PipelineStageFlagBits::eFragmentShader, {},
+			0, nullptr,
+			0, nullptr,
+			1, &barrier);
+
+		// At the end of the loop, we divide the current mip dimensions by two. We
+		// check each dimension before the division to ensure that dimension never
+		// becomes 0. This handles cases where the image is not square, since one
+		// of the mip dimensions would reach 1 before the other dimension. When
+		// this happens, that dimension should remain 1 for all remaining
+		// levels.
+		if (mipWidth > 1) mipWidth /= 2;
+		if (mipHeight > 1) mipHeight /= 2;
+	}
+
+	// Before we end the command buffer, we insert one more pipeline barrier. This barrier
+	// transitions the last mip level from vk::ImageLayout::eTransferDstOptimal to
+	// vk::ImageLayout::eShaderReadOnlyOptimal. This wasn't handled by the loop, since the
+	// last mip level is never blitted from.
+	barrier.subresourceRange.baseMipLevel = mipLevels - 1;
+	barrier.oldLayout = vk::ImageLayout::eTransferDstOptimal;
+	barrier.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+	barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+	barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
+
+	commandBuffer.pipelineBarrier(
+		vk::PipelineStageFlagBits::eTransfer,
+		vk::PipelineStageFlagBits::eFragmentShader, {},
+		0, nullptr,
+		0, nullptr,
+		1, &barrier);
+
+	endAndSubmitCommandBuffer(device, commandPool, queue, commandBuffer);
+}
+
