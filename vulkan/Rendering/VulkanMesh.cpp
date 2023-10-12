@@ -1,8 +1,8 @@
 #include "VulkanMesh.h"
 
-VulkanMesh::VulkanMesh(vk::PhysicalDevice physicalDeviceP, vk::Device deviceP, vk::Queue transferQueue, 
-	vk::CommandPool transferCommandPool, std::vector<Vertex>* vertices, std::vector<uint32_t>* indices) :
-	vertexCount(vertices->size()), indexCount(indices->size()), physicalDevice(physicalDeviceP), device(deviceP)
+VulkanMesh::VulkanMesh(vk::PhysicalDevice physicalDeviceP, vk::Device deviceP, vk::Queue transferQueue,
+	vk::CommandPool transferCommandPool, std::vector<Vertex>* vertices, std::vector<uint32_t>* indices, int texIdP) :
+	vertexCount(vertices->size()), indexCount(indices->size()), physicalDevice(physicalDeviceP), device(deviceP), texId(texIdP)
 {
 	createVertexBuffer(transferQueue, transferCommandPool, vertices);
 	createIndexBuffer(transferQueue, transferCommandPool, indices);

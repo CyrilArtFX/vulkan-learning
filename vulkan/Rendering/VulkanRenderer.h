@@ -4,6 +4,7 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <stb_image.h>
 
 #include <Utils/VulkanUtilities.h>
 #include "VulkanMesh.h"
@@ -92,6 +93,16 @@ private:
 	vk::DeviceMemory depthBufferImageMemory;
 	vk::ImageView depthBufferImageView;
 
+	//  textures
+	std::vector<vk::Image> textureImages;
+	std::vector<vk::ImageView> textureImageViews;
+	std::vector<vk::DeviceMemory> textureImageMemory;
+	vk::Sampler textureSampler;
+	vk::DescriptorPool samplerDescriptorPool;
+	vk::DescriptorSetLayout samplerDescriptorSetLayout;
+	std::vector<vk::DescriptorSet> samplerDescriptorSets;
+
+
 
 
 
@@ -153,6 +164,14 @@ private:
 		vk::ImageUsageFlags useFlags, vk::MemoryPropertyFlags propFlags, vk::DeviceMemory* imageMemory);
 	vk::Format chooseSupportedFormat(const std::vector<vk::Format>& formats, vk::ImageTiling tiling,
 		vk::FormatFeatureFlags featureFlags);
+
+
+	//  textures
+	stbi_uc* loadTextureFile(const std::string& filename, int* width, int* height, vk::DeviceSize* imageSize);
+	int createTextureImage(const std::string& filename);
+	int createTexture(const std::string & filename);
+	void createTextureSampler();
+	int createTextureDescriptor(vk::ImageView textureImageView);
 
 
 public:
