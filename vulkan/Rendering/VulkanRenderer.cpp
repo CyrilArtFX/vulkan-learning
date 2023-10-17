@@ -63,9 +63,6 @@ int VulkanRenderer::init(GLFWwindow* windowP)
 
 		//  default texture
 		createTexture("cat.jpg");
-
-		//  load model
-		createMeshModel("models/Futuristic combat jet.obj");
 	}
 	catch (const std::runtime_error& e)
 	{
@@ -1887,7 +1884,7 @@ void VulkanRenderer::clean()
 
 void VulkanRenderer::updateModel(int modelId, glm::mat4 modelP)
 {
-	if (modelId >= meshes.size()) return;
+	if (modelId >= meshModels.size()) return;
 
 	meshModels[modelId].setModel(modelP);
 }
